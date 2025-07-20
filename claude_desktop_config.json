@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "pnl-mcp-server": {
+      "command": "python",
+      "args": [
+        "-m", 
+        "pnl_mcp",
+        "stdio"
+      ],
+      "cwd": "D:\\Codebase\\pnl-mcp-server",
+      "env": {
+        "PYTHONPATH": "D:\\Codebase\\pnl-mcp-server\\src"
+      }
+    }
+  }
+} 

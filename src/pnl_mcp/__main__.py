@@ -3,13 +3,13 @@ import typer
 
 from .server import run_sse, run_stdio
 
-app = typer.Typer(help="Excel MCP Server")
+app = typer.Typer(help="PnL Analysis MCP Server")
 
 @app.command()
 def sse():
-    """Start Excel MCP Server in SSE mode"""
-    print("Excel MCP Server - SSE mode")
-    print("----------------------")
+    """Start PnL Analysis MCP Server in SSE mode"""
+    print("PnL Analysis MCP Server - SSE mode")
+    print("-----------------------------------")
     print("Press Ctrl+C to exit")
     try:
         asyncio.run(run_sse())
@@ -24,7 +24,7 @@ def sse():
 
 @app.command()
 def stdio():
-    """Start Excel MCP Server in stdio mode"""
+    """Start PnL Analysis MCP Server in stdio mode"""
     try:
         run_stdio()
     except KeyboardInterrupt:
@@ -37,4 +37,4 @@ def stdio():
         print("Service stopped.")
 
 if __name__ == "__main__":
-    app() 
+    app()
