@@ -61,161 +61,41 @@ def get_data_path(filename: str) -> str:
     # In SSE mode, if it's a relative path, resolve it based on DATA_FILES_PATH
     return os.path.join(DATA_FILES_PATH, filename)
 
-@mcp.tool()
-def preview_data(
-    filepath: str,
-    data_type: str = "excel",
-    sheet_name: str = None,
-    range_spec: str = None,
-    query: str = None,
-    sample_rows: int = 5,
-    all_sheets: bool = False
-) -> str:
-    """
-    Preview the structure of a dataset without loading the full data.
-    For Excel files, shows all sheets overview when no sheet_name is specified.
-    
-    Args:
-        filepath: Path to the data file
-        data_type: Type of data source (excel, csv, sqlite)
-        sheet_name: Sheet name for Excel files (optional - if None, shows all sheets)
-        range_spec: Range specification for Excel files (e.g., "A1:C10")
-        query: SQL query for SQLite files
-        sample_rows: Number of sample rows to return per sheet (default: 5)
-        all_sheets: Force multi-sheet preview even when sheet_name is specified
-    
-    Returns:
-        JSON string with preview information including columns, shape, and sample data.
-        For Excel files without sheet_name: comprehensive multi-sheet overview.
-    """
-    import pandas as pd
-    import json
-    
-    try:
-        full_path = get_data_path(filepath)
-        
-        if not os.path.exists(full_path):
-            return json.dumps({"success": False, "message": f"File not found: {full_path}"})
-        
-        result = {"success": True}
-        
-        if data_type == "excel":
-            # Check if we should show all sheets overview
-            if sheet_name is None or all_sheets:
-                # Get comprehensive sheet information
-                excel_info = get_excel_sheet_info(full_path)
-                result.update(excel_info)
-                
-                # Load sample data from each sheet
-                sheets_data = {}
-                for sheet in excel_info['sheet_names']:
-                    try:
-                        df_sheet, sheet_metadata = load_excel_with_smart_headers(
-                            full_path, sheet_name=sheet, 
-                            range_spec=range_spec, sample_rows=sample_rows
-                        )
-                        sheets_data[sheet] = {
-                            'columns': df_sheet.columns.tolist(),
-                            'shape': list(df_sheet.shape),
-                            'dtypes': df_sheet.dtypes.astype(str).to_dict(),
-                            'sample_data': df_sheet.head(min(sample_rows, 3)).to_dict(orient="records"),
-                            'metadata': sheet_metadata,
-                            'data_quality': {
-                                'null_counts': df_sheet.isnull().sum().to_dict(),
-                                'memory_usage': df_sheet.memory_usage(deep=True).sum()
-                            }
-                        }
-                    except Exception as e:
-                        sheets_data[sheet] = {
-                            'error': f"Could not load sheet: {str(e)}",
-                            'metadata': excel_info['sheets'].get(sheet, {})
-                        }
-                
-                result['sheets_data'] = sheets_data
-                result['multi_sheet_preview'] = True
-                
-                # If specific sheet requested, also return that as main df
-                if sheet_name and sheet_name in excel_info['sheet_names']:
-                    df, metadata = load_excel_with_smart_headers(
-                        full_path, sheet_name=sheet_name, 
-                        range_spec=range_spec, sample_rows=sample_rows
-                    )
-                    result.update(metadata)
-                else:
-                    # Use first available sheet as default df
-                    df, metadata = load_excel_with_smart_headers(
-                        full_path, sheet_name=excel_info['sheet_names'][0], 
-                        range_spec=range_spec, sample_rows=sample_rows
-                    )
-                    result.update(metadata)
-            else:
-                # Single sheet preview
-                df, metadata = load_excel_with_smart_headers(
-                    full_path, sheet_name=sheet_name, 
-                    range_spec=range_spec, sample_rows=sample_rows
-                )
-                result.update(metadata)
-                result['multi_sheet_preview'] = False
-                
-        elif data_type == "csv":
-            df = pd.read_csv(full_path, nrows=sample_rows)
-        elif data_type == "sqlite":
-            import sqlite3
-            conn = sqlite3.connect(full_path)
-            if not query:
-                query = "SELECT name FROM sqlite_master WHERE type='table'"
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-        else:
-            return json.dumps({"success": False, "message": f"Unsupported data type: {data_type}"})
-        
-        # Add source file to metadata for formatting
-        metadata = result.copy() if data_type == "excel" else {}
-        metadata['source_file'] = filepath
-        
-        # Create formatted summary
-        formatted_summary = format_preview_result(df, metadata)
-        
-        # Also return structured data for programmatic use
-        result.update({
-            "success": True,
-            "formatted_summary": formatted_summary,
-            "columns": df.columns.tolist(),
-            "shape": list(df.shape),
-            "dtypes": df.dtypes.astype(str).to_dict(),
-            "sample_data": df.head(2).to_dict(orient="records"),
-            "message": "Preview generated successfully"
-        })
-        
-        return json.dumps(result, indent=2, default=str)
-        
-    except Exception as e:
-        logger.error(f"Error previewing data: {e}")
-        context = {"filepath": filepath, "data_type": data_type, "sheet_name": sheet_name}
-        return handle_tool_error(e, "preview_data", context)
+# Global data cache for code executor
+_loaded_dataframes = {}
 
 @mcp.tool()
 def analyze_data(
     filepath: str,
     analysis_code: str,
-    data_type: str = "excel",
     sheet_name: str = None,
     range_spec: str = None,
-    query: str = None
+    preview_mode: bool = False,
+    sample_rows: int = None
 ) -> str:
     """
-    Execute Python data wrangling code on the dataset. Use get_workflows first for proven anomaly detection patterns.
+    Execute Python code on datasets. Use get_workflows('anomaly') for proven patterns.
+    
+    🚨 KEEP CODE SIMPLE: Single expressions or assignments only
+    
+    Available functions: zscore(series) - Calculate z-scores for any expression
+    
+    Basic usage:
+    - "df.columns.tolist()" - See columns
+    - "df.head()" - Preview data
+    - "zscore(df['columnA'] - df['columnB'])" - Calculate z-scores
+    - "df[zscore(df['columnA']).abs() > 3]" - Find outliers
     
     Args:
-        filepath: Path to the data file
-        analysis_code: Python code to execute on the DataFrame (df variable)
-        data_type: Type of data source (excel, csv, sqlite)
+        filepath: Path to Excel or CSV file
+        analysis_code: Python code to execute (single line)
         sheet_name: Sheet name for Excel files (optional)
         range_spec: Range specification for Excel files (e.g., "A1:C10")
-        query: SQL query for SQLite files
+        preview_mode: If True, loads only sample rows (default: False)
+        sample_rows: Number of rows to sample in preview mode (default: 5)
     
     Returns:
-        JSON string with analysis results including data shape, analysis result, and summary
+        JSON string with analysis results
     """
     import pandas as pd
     import numpy as np
@@ -227,33 +107,52 @@ def analyze_data(
         if not os.path.exists(full_path):
             return json.dumps({"success": False, "message": f"File not found: {full_path}"})
         
-        # Load data using enhanced Excel loader
-        if data_type == "excel":
-            df, metadata = load_excel_with_smart_headers(
-                full_path, sheet_name=sheet_name, range_spec=range_spec
-            )
-        elif data_type == "csv":
-            df = pd.read_csv(full_path)
+        # Try to get cached DataFrame first
+        cache_key = f"{filepath}_{sheet_name or 'default'}"
+        if cache_key in _loaded_dataframes:
+            df = _loaded_dataframes[cache_key]
             metadata = {}
-        elif data_type == "sqlite":
-            import sqlite3
-            conn = sqlite3.connect(full_path)
-            if not query:
-                return json.dumps({"success": False, "message": "SQL query required for SQLite data sources"})
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-            metadata = {}
+            logger.info(f"Using cached DataFrame: {cache_key}")
         else:
-            return json.dumps({"success": False, "message": f"Unsupported data type: {data_type}"})
+            # Determine file type and load data
+            if filepath.lower().endswith('.xlsx') or filepath.lower().endswith('.xls'):
+                # Excel file
+                if preview_mode and sample_rows:
+                    df, metadata = load_excel_with_smart_headers(
+                        full_path, sheet_name=sheet_name, range_spec=range_spec, sample_rows=sample_rows
+                    )
+                else:
+                    df, metadata = load_excel_with_smart_headers(
+                        full_path, sheet_name=sheet_name, range_spec=range_spec
+                    )
+            elif filepath.lower().endswith('.csv'):
+                # CSV file
+                if preview_mode and sample_rows:
+                    df = pd.read_csv(full_path, nrows=sample_rows)
+                else:
+                    df = pd.read_csv(full_path)
+                metadata = {}
+            else:
+                return json.dumps({"success": False, "message": f"Unsupported file type. Only Excel (.xlsx, .xls) and CSV files are supported."})
+            
+            # Cache the loaded DataFrame
+            _loaded_dataframes[cache_key] = df
+            logger.info(f"Loaded and cached DataFrame: {cache_key}, shape: {df.shape}")
         
         # Remove empty columns
         df = df.dropna(axis=1, how="all")
         
+        # Define workflow functions for analysis
+        def zscore(series):
+            """Calculate z-scores for any pandas Series or expression"""
+            return (series - series.mean()) / series.std()
+
         # Execute analysis code using enhanced executor
         local_vars = {
             "df": df, 
             "pd": pd, 
-            "np": np
+            "np": np,
+            "zscore": zscore
         }
         
         result, execution_output, success = execute_analysis_code(analysis_code, local_vars)
@@ -299,17 +198,36 @@ def analyze_data(
         # Create formatted analysis result
         formatted_result = format_analysis_result(result, df, analysis_code, execution_output)
         
+        # Determine which columns to show in response
+        if isinstance(result, pd.DataFrame):
+            # If result is a DataFrame, show only its columns
+            response_columns = result.columns.tolist()
+            response_shape = list(result.shape)
+        elif isinstance(result, pd.Series) and hasattr(result, 'index'):
+            # If result is a Series, show the index as "columns"
+            response_columns = [result.name] if result.name else ["series_result"]
+            response_shape = [len(result), 1]
+        else:
+            # For scalar results, don't show all columns - just indicate result type
+            response_columns = []
+            response_shape = []
+        
         response = {
             "success": True,
             "formatted_result": formatted_result,
-            "data_shape": list(df.shape),
-            "columns": df.columns.tolist(),
+            "data_shape": response_shape,
+            "columns": response_columns,
             "analysis_result": result_dict,
             "execution_output": execution_output,
             "session_info": {
-                "cache_used": False,
+                "cache_used": cache_key in _loaded_dataframes,
                 "analysis_count": 1,
                 "source_files": [filepath]
+            },
+            "metadata": {
+                "original_data_shape": list(df.shape),
+                "total_columns_available": len(df.columns),
+                "result_type": type(result).__name__
             },
             "message": "Analysis completed successfully"
         }
@@ -318,128 +236,25 @@ def analyze_data(
         
     except Exception as e:
         logger.error(f"Error analyzing data: {e}")
-        context = {"filepath": filepath, "data_type": data_type, "analysis_code": analysis_code}
+        context = {"filepath": filepath, "sheet_name": sheet_name, "analysis_code": analysis_code}
         return handle_tool_error(e, "analyze_data", context)
 
 @mcp.tool()
-def get_workflows(category: str = None) -> str:
+def preview_excel(filepath: str) -> str:
     """
-    Retrieve anomaly detection workflows from workflow.md.
+    Preview all sheets and columns in an Excel file with their data types.
+    
+    Shows:
+    - All sheet names in the workbook
+    - Column names and data types for each sheet
+    - Basic shape information (rows x columns)
+    - Sample data preview (first few rows)
     
     Args:
-        category: Optional category to filter workflows (anomaly, analysis, summary, dashboard)
-    
+        filepath: Path to Excel file (.xlsx or .xls)
+        
     Returns:
-        JSON string with workflow documentation
-    """
-    import json
-    
-    try:
-        workflow_path = os.path.join(ROOT_DIR, "workflow.md")
-        
-        if not os.path.exists(workflow_path):
-            return json.dumps({
-                "success": False, 
-                "message": "workflow.md not found. Create it first with anomaly detection patterns."
-            })
-        
-        with open(workflow_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Parse sections if category specified
-        if category:
-            lines = content.split('\n')
-            in_section = False
-            section_content = []
-            
-            for line in lines:
-                if line.startswith('##') and category.lower() in line.lower():
-                    in_section = True
-                    section_content.append(line)
-                elif line.startswith('##') and in_section:
-                    break
-                elif in_section:
-                    section_content.append(line)
-            
-            if section_content:
-                content = '\n'.join(section_content)
-            else:
-                return json.dumps({
-                    "success": False,
-                    "message": f"Category '{category}' not found in workflow.md"
-                })
-        
-        return json.dumps({
-            "success": True,
-            "content": content,
-            "message": f"Retrieved workflow documentation{' for category: ' + category if category else ''}"
-        }, indent=2)
-        
-    except Exception as e:
-        logger.error(f"Error retrieving workflows: {e}")
-        return json.dumps({"success": False, "message": f"Error reading workflow.md: {str(e)}"})
-
-@mcp.tool()
-def update_workflow(content: str, section: str = None, append: bool = True) -> str:
-    """
-    Update or append to workflow.md with new anomaly detection patterns.
-    
-    Args:
-        content: Markdown content to add to workflow.md
-        section: Optional section name to add content under
-        append: If True, append to existing content. If False, replace entire file
-    
-    Returns:
-        JSON string with update status
-    """
-    import json
-    
-    try:
-        workflow_path = os.path.join(ROOT_DIR, "workflow.md")
-        
-        if append and os.path.exists(workflow_path):
-            with open(workflow_path, 'r', encoding='utf-8') as f:
-                existing_content = f.read()
-            
-            if section:
-                new_content = f"{existing_content}\n\n## {section}\n\n{content}"
-            else:
-                new_content = f"{existing_content}\n\n{content}"
-        else:
-            new_content = content
-        
-        with open(workflow_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        
-        return json.dumps({
-            "success": True,
-            "message": f"Successfully {'appended to' if append else 'updated'} workflow.md"
-        })
-        
-    except Exception as e:
-        logger.error(f"Error updating workflow: {e}")
-        return json.dumps({"success": False, "message": f"Error updating workflow.md: {str(e)}"})
-
-@mcp.tool()
-def load_data(
-    filepath: str,
-    data_type: str = "excel",
-    sheet_name: str = None,
-    range_spec: str = None,
-    query: str = None
-) -> str:
-    """
-    Load data from various sources and return basic information.
-    
-    Args:
-        filepath: Path to the data file
-        data_type: Type of data source (excel, csv, sqlite)
-        sheet_name: Sheet name for Excel files (optional)
-        range_spec: Range specification for Excel files (e.g., "A1:C10")
-        query: SQL query for SQLite files
-    
-    Returns:
-        JSON string with data loading information
+        JSON string with sheet information, columns, and data types
     """
     import pandas as pd
     import json
@@ -450,52 +265,204 @@ def load_data(
         if not os.path.exists(full_path):
             return json.dumps({"success": False, "message": f"File not found: {full_path}"})
         
-        # Load data using enhanced Excel loader
-        if data_type == "excel":
-            df, excel_metadata = load_excel_with_smart_headers(
-                full_path, sheet_name=sheet_name, range_spec=range_spec
-            )
-        elif data_type == "csv":
-            df = pd.read_csv(full_path)
-            excel_metadata = {}
-        elif data_type == "sqlite":
-            import sqlite3
-            conn = sqlite3.connect(full_path)
-            if not query:
-                return json.dumps({"success": False, "message": "SQL query required for SQLite data sources"})
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-            excel_metadata = {}
-        else:
-            return json.dumps({"success": False, "message": f"Unsupported data type: {data_type}"})
+        if not (filepath.lower().endswith('.xlsx') or filepath.lower().endswith('.xls')):
+            return json.dumps({"success": False, "message": "Only Excel files (.xlsx, .xls) are supported for preview"})
         
-        # Remove empty columns
-        df = df.dropna(axis=1, how="all")
+        # Read all sheet names
+        excel_file = pd.ExcelFile(full_path)
+        sheet_names = excel_file.sheet_names
         
-        # Create comprehensive summary report
-        metadata = {'source_file': filepath}
-        if data_type == "excel":
-            metadata.update(excel_metadata)
+        sheets_info = {}
         
-        summary_report = create_summary_report(df, metadata)
+        for sheet_name in sheet_names:
+            # Load each sheet with minimal rows for preview
+            df = pd.read_excel(full_path, sheet_name=sheet_name, nrows=5)
+            
+            # Get column info
+            column_info = {}
+            for col in df.columns:
+                dtype_str = str(df[col].dtype)
+                # Add sample values if available
+                non_null_values = df[col].dropna()
+                sample_values = non_null_values.head(3).tolist() if len(non_null_values) > 0 else []
+                
+                column_info[col] = {
+                    "dtype": dtype_str,
+                    "sample_values": sample_values,
+                    "null_count": df[col].isna().sum()
+                }
+            
+            # Get full shape by reading just the index
+            full_df_shape = pd.read_excel(full_path, sheet_name=sheet_name, usecols=[0]).shape
+            
+            sheets_info[sheet_name] = {
+                "shape": [full_df_shape[0], len(df.columns)],
+                "columns": list(df.columns),
+                "column_info": column_info,
+                "preview_data": df.head().to_dict(orient="records")
+            }
         
-        result = {
+        response = {
             "success": True,
-            "summary_report": summary_report,
-            "data_shape": list(df.shape),
-            "columns": df.columns.tolist(),
-            "dtypes": df.dtypes.astype(str).to_dict(),
-            "memory_usage": df.memory_usage(deep=True).sum(),
-            "null_counts": df.isnull().sum().to_dict(),
-            "message": f"Successfully loaded data from {filepath}"
+            "file": filepath,
+            "total_sheets": len(sheet_names),
+            "sheet_names": sheet_names,
+            "sheets": sheets_info,
+            "message": f"Successfully previewed {len(sheet_names)} sheet(s)"
         }
         
-        return json.dumps(result, indent=2, default=str)
+        return json.dumps(response, indent=2, default=str)
         
     except Exception as e:
-        logger.error(f"Error loading data: {e}")
-        context = {"filepath": filepath, "data_type": data_type, "sheet_name": sheet_name}
-        return handle_tool_error(e, "load_data", context)
+        logger.error(f"Error previewing Excel file: {e}")
+        return json.dumps({
+            "success": False, 
+            "message": f"Error previewing file: {str(e)}",
+            "file": filepath
+        })
+
+@mcp.tool()
+def get_workflows(category: str = None) -> str:
+    """
+    Retrieve workflow documentation from markdown files in workflows folder.
+    
+    Args:
+        category: Optional category to retrieve (anomaly, analysis, dashboard). 
+                 If None, lists all available workflows.
+    
+    Returns:
+        JSON string with workflow documentation
+    """
+    import json
+    
+    try:
+        workflows_dir = os.path.join(ROOT_DIR, "workflows")
+        
+        # Create workflows directory if it doesn't exist
+        if not os.path.exists(workflows_dir):
+            os.makedirs(workflows_dir, exist_ok=True)
+            return json.dumps({
+                "success": False, 
+                "message": "Workflows directory created. Please add workflow markdown files."
+            })
+        
+        # If no category specified, list available workflows
+        if category is None:
+            workflow_files = [f.replace('.md', '') for f in os.listdir(workflows_dir) 
+                            if f.endswith('.md')]
+            
+            if not workflow_files:
+                return json.dumps({
+                    "success": False,
+                    "message": "No workflow files found in workflows directory."
+                })
+            
+            # Read all workflows and return summary
+            all_workflows = {}
+            for workflow_name in workflow_files:
+                file_path = os.path.join(workflows_dir, f"{workflow_name}.md")
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Get first few lines as preview
+                    preview_lines = content.split('\n')[:10]
+                    all_workflows[workflow_name] = {
+                        "preview": '\n'.join(preview_lines),
+                        "full_content": content
+                    }
+            
+            return json.dumps({
+                "success": True,
+                "available_workflows": workflow_files,
+                "workflows": all_workflows,
+                "message": f"Found {len(workflow_files)} workflow(s)"
+            }, indent=2)
+        
+        # Load specific category workflow
+        workflow_file = os.path.join(workflows_dir, f"{category.lower()}.md")
+        
+        if not os.path.exists(workflow_file):
+            # List available workflows
+            available = [f.replace('.md', '') for f in os.listdir(workflows_dir) 
+                        if f.endswith('.md')]
+            return json.dumps({
+                "success": False,
+                "message": f"Workflow '{category}' not found. Available workflows: {', '.join(available)}"
+            })
+        
+        with open(workflow_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return json.dumps({
+            "success": True,
+            "category": category,
+            "content": content,
+            "message": f"Retrieved {category} workflow documentation"
+        }, indent=2)
+        
+    except Exception as e:
+        logger.error(f"Error retrieving workflows: {e}")
+        return json.dumps({"success": False, "message": f"Error reading workflows: {str(e)}"})
+
+@mcp.tool()
+def update_workflow(category: str, content: str, section: str = None, append: bool = True) -> str:
+    """
+    Update or append to workflow markdown files in workflows folder.
+    
+    Args:
+        category: Workflow category to update (anomaly, analysis, dashboard)
+        content: Markdown content to add to the workflow file
+        section: Optional section name to add content under
+        append: If True, append to existing content. If False, replace entire file
+    
+    Returns:
+        JSON string with update status
+    """
+    import json
+    
+    try:
+        workflows_dir = os.path.join(ROOT_DIR, "workflows")
+        
+        # Create workflows directory if it doesn't exist
+        os.makedirs(workflows_dir, exist_ok=True)
+        
+        # Determine workflow file path
+        workflow_file = os.path.join(workflows_dir, f"{category.lower()}.md")
+        
+        if append and os.path.exists(workflow_file):
+            with open(workflow_file, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+            
+            if section:
+                new_content = f"{existing_content}\n\n## {section}\n\n{content}"
+            else:
+                new_content = f"{existing_content}\n\n{content}"
+        else:
+            # If creating new file, add a title
+            if not os.path.exists(workflow_file):
+                title_map = {
+                    'anomaly': '# 🚨 Anomaly Detection Workflows',
+                    'analysis': '# 📊 Data Analysis Workflows',
+                    'dashboard': '# 📈 Dashboard & Reporting Workflows'
+                }
+                title = title_map.get(category.lower(), f'# {category.title()} Workflows')
+                new_content = f"{title}\n\n{content}"
+            else:
+                new_content = content
+        
+        with open(workflow_file, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        return json.dumps({
+            "success": True,
+            "category": category,
+            "file": workflow_file,
+            "message": f"Successfully {'appended to' if append else 'updated'} {category} workflow"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating workflow: {e}")
+        return json.dumps({"success": False, "message": f"Error updating {category} workflow: {str(e)}"})
+
 
 async def run_sse():
     """Run PnL MCP server in SSE mode."""

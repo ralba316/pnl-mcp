@@ -17,7 +17,7 @@ class ExcelDataLoader:
     def __init__(self):
         self.engine = 'openpyxl'
     
-    def _detect_data_region(self, worksheet, max_rows: int = 50, max_cols: int = 50) -> Tuple[int, int, int, int]:
+    def _detect_data_region(self, worksheet, max_rows: int = 50, max_cols: int = 200) -> Tuple[int, int, int, int]:
         """
         Detect the actual data region in a worksheet.
         

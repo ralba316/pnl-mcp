@@ -7,7 +7,9 @@ src/*.egg-info/
 
 # Development Environment
 .venv/
+venv/
 .env
+.env.local
 
 # IDE
 .vscode/
@@ -34,3 +36,16 @@ output/
 *.xls
 *.log 
 excel_files/
+workflows/
+anomaly.txt
+workflow.md
+
+# Claude specific
+.claude/settings.local.json
+claude_desktop_config.json
+
+# Local/temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

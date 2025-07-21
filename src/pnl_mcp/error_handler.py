@@ -283,10 +283,63 @@ class ContextualErrorHandler:
             error, context, "analyze_data"
         )
         
-        # Add code-specific suggestions
+        # Detect code complexity and add simplicity suggestions
+        code_lines = code.strip().split('\n')
+        is_complex = (
+            len(code_lines) > 2 or  # Multi-line code
+            'print(' in code or      # Print statements
+            ' = ' in code and len([line for line in code_lines if ' = ' in line]) > 1 or  # Multiple assignments
+            'import ' in code or     # Import statements
+            'def ' in code or        # Function definitions
+            'for ' in code or        # Loops
+            'if ' in code or         # Conditionals
+            'try:' in code           # Error handling
+        )
+        
+        # Add simplicity-focused suggestions at the top
+        simplicity_suggestions = []
+        
+        if isinstance(error, KeyError):
+            if data_context and 'available_columns' in data_context:
+                column_names = data_context['available_columns']
+                error_msg = str(error).strip("'\"")
+                # Find similar column names
+                similar_cols = [col for col in column_names if error_msg.lower() in col.lower()]
+                if similar_cols:
+                    simplicity_suggestions.append(f"Column '{error_msg}' not found. Try: {similar_cols[:3]}")
+                else:
+                    simplicity_suggestions.append(f"Column '{error_msg}' doesn't exist. First try: df.columns.tolist()")
+            simplicity_suggestions.append("SIMPLE FIX: Start with df.columns.tolist() to see available columns")
+        
         if isinstance(error, SyntaxError):
-            error_response["suggestions"].insert(0, 
-                "Try using simple expressions first, then build complexity gradually")
+            simplicity_suggestions.append("🚨 CODE TOO COMPLEX: Use single operations like df.head() or df['column'].describe()")
+            simplicity_suggestions.append("Break your analysis into multiple simple steps")
+        
+        if is_complex:
+            simplicity_suggestions.extend([
+                "⚠️ Your code is too complex for analyze_data tool",
+                "Use ONE simple operation per call: df.head(), df['column'].max(), etc.",
+                "For complex analysis, make multiple separate tool calls"
+            ])
+        
+        # Add column-specific help if available
+        if data_context and 'available_columns' in data_context:
+            key_columns = [col for col in data_context['available_columns'] 
+                          if any(keyword in col for keyword in ['Impact', 'Inp', 'PNL', 'Delta'])]
+            if key_columns:
+                simplicity_suggestions.append(f"KEY COLUMNS: {', '.join(key_columns[:5])}")
+        
+        # Insert simplicity suggestions at the beginning
+        error_response["suggestions"] = simplicity_suggestions + error_response["suggestions"]
+        
+        # Add simple example suggestions
+        error_response["simple_examples"] = [
+            "df.columns.tolist()",
+            "df.head()",
+            "df['Base Impact of Delta'].describe()",
+            "df[df['Inp Today'] > 0]",
+            "df['Inp Today'] - df['Inp Yesterday']"
+        ]
         
         logger.error(f"Analysis code failed: {str(error)}", exc_info=True)
         
