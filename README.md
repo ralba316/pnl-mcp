@@ -66,18 +66,20 @@ The app will be live at `https://your-app-name.streamlit.app`
 ## Project Structure
 
 ```
-pnl-frontend/
+streamlit/
 ├── dashboard.py              # Main Streamlit application
-├── requirements.txt          # Python dependencies for dashboard
+├── requirements.txt          # Python dependencies
+├── packages.txt              # System packages (for Streamlit Cloud)
+├── .python-version           # Python version specification
 ├── data_files/
 │   └── pnl_data.xlsx        # PNL data with Data and Pivot sheets
 ├── .streamlit/
 │   └── config.toml          # Streamlit configuration
-├── src/                     # MCP server package (separate from dashboard)
+├── LICENSE                   # MIT License
 └── README.md                # This file
 ```
 
-**Note**: The `src/` directory contains an MCP server package that is separate from the Streamlit dashboard. The dashboard (`dashboard.py`) is completely standalone and doesn't require the MCP server.
+This is a clean, standalone Streamlit dashboard with no external dependencies.
 
 ## Data Format
 
