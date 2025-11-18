@@ -27,17 +27,8 @@ logger = logging.getLogger("pnl-mcp")
 
 # Initialize FastMCP server
 mcp = FastMCP(
-    "pnl-mcp",
-    version="0.1.0",
-    description="PnL MCP Server for analyzing Endur P&L reports with workflow-guided anomaly detection",
-    dependencies=["pandas>=2.0.0", "openpyxl>=3.1.2"],
-    env_vars={
-        "DATA_FILES_PATH": {
-            "description": "Path to data files directory",
-            "required": False,
-            "default": DATA_FILES_PATH
-        }
-    }
+    name="pnl-mcp",
+    dependencies=["pandas>=2.0.0", "openpyxl>=3.1.2"]
 )
 
 def get_data_path(filename: str) -> str:
