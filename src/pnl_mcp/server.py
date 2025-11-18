@@ -28,7 +28,8 @@ logger = logging.getLogger("pnl-mcp")
 # Initialize FastMCP server
 mcp = FastMCP(
     name="pnl-mcp",
-    dependencies=["pandas>=2.0.0", "openpyxl>=3.1.2"]
+    dependencies=["pandas>=2.0.0", "openpyxl>=3.1.2"],
+    host="0.0.0.0"
 )
 
 def get_data_path(filename: str) -> str:
