@@ -9,6 +9,9 @@ This is a Model Context Protocol (MCP) server for analyzing Excel and CSV files.
 - Installed package in editable mode
 - Created necessary directories (data_files, workflows)
 - Workflow configured to run MCP server in SSE mode
+- **NEW:** Created interactive Streamlit dashboard for PNL analysis
+- **NEW:** Added anomaly detection with Z-score analysis
+- **NEW:** Dashboard shows Pivot Table, Deals Summary, and Anomaly Detection
 
 ## Project Structure
 - **src/pnl_mcp/**: Main package directory
@@ -51,14 +54,23 @@ This is a Model Context Protocol (MCP) server for analyzing Excel and CSV files.
 - `DATA_FILES_PATH`: Path to directory containing data files (default: `./data_files`)
 - `FASTMCP_PORT`: Server port (default: 8000)
 
-### Workflow
-The project runs a single workflow:
-- **MCP Server**: Runs `pnl-mcp-server sse` on port 8000
+### Workflows
+The project runs two workflows:
+1. **Dashboard** (Primary): Streamlit web app on port 5000 - Interactive PNL analysis dashboard
+2. **MCP Server** (Backend): MCP server on port 8000 - Data analysis API
 
 ## Usage
 
-### Running the Server
-The server starts automatically via the workflow. It listens on:
+### Accessing the Dashboard
+The interactive dashboard starts automatically and is available at:
+- **Web Dashboard**: http://localhost:5000 (or via Replit's webview)
+- Features:
+  - **Deals Summary**: Aggregated PNL data by deal
+  - **Pivot Table**: View pivot and detailed data sheets
+  - **Anomaly Detection**: Z-score analysis with interactive visualizations
+
+### Running the MCP Server
+The backend MCP server runs automatically on:
 - **Local**: http://localhost:8000/sse
 - **Public**: Available via Replit's provided URL on port 8000
 
@@ -84,6 +96,7 @@ pnl-mcp-server stdio
 ```
 
 ## Dependencies
+### Backend (MCP Server)
 - Python 3.10+
 - mcp[cli] >= 1.6.0
 - pandas >= 2.0.0
@@ -91,7 +104,12 @@ pnl-mcp-server stdio
 - typer >= 0.15.1
 - requests >= 2.31.0
 
-All dependencies are installed via pip in editable mode.
+### Dashboard
+- streamlit >= 1.51.0
+- plotly >= 6.5.0
+- scipy >= 1.15.3
+
+All dependencies are installed via pip.
 
 ## Development Notes
 - Package installed with `pip install -e .`
