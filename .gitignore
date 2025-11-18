@@ -1,50 +1,33 @@
-# Build and Distribution
+# Python
 __pycache__/
 *.py[cod]
-build/
-dist/
-src/*.egg-info/
+*.pyo
+*.pyd
+.Python
 
-# Development Environment
-.venv/
+# Virtual Environment
 venv/
-.env
-.env.local
+.venv/
+env/
+ENV/
 
 # IDE
 .vscode/
 .idea/
-.cursor/
-.cursorignore
-.cursorrules
-.specstory
+*.swp
+*.swo
+*~
 
-# Testing and Linting
-.coverage
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-htmlcov/
-tests/
-
-# Project Files
-extras/
-.notes/
-logs/
-output/
-*.log
-excel_files/
-workflows/
-anomaly.txt
-workflow.md
-.local/
-
-# Claude specific
-.claude/settings.local.json
-claude_desktop_config.json
-
-# Local/temporary files
-*.tmp
-*.temp
+# OS
 .DS_Store
 Thumbs.db
+
+# Local data
+.local/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
