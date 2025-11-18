@@ -12,6 +12,9 @@ This is a Model Context Protocol (MCP) server for analyzing Excel and CSV files.
 - **NEW:** Created interactive Streamlit dashboard for PNL analysis
 - **NEW:** Added anomaly detection with Z-score analysis
 - **NEW:** Dashboard shows Pivot Table, Deals Summary, and Anomaly Detection
+- **UPDATED:** Deals Summary now features a pie chart showing top 10 deals by impact
+- **UPDATED:** Anomaly detection includes 30-second loading screen with progress steps
+- **UPDATED:** Cleaned up anomaly detection UI by removing redundant deal summary table
 
 ## Project Structure
 - **src/pnl_mcp/**: Main package directory
@@ -65,9 +68,9 @@ The project runs two workflows:
 The interactive dashboard starts automatically and is available at:
 - **Web Dashboard**: http://localhost:5000 (or via Replit's webview)
 - Features:
-  - **Deals Summary**: Aggregated PNL data by deal
+  - **Deals Summary**: Aggregated metrics and pie chart showing top 10 deals by Impact of Delta
   - **Pivot Table**: View pivot and detailed data sheets
-  - **Anomaly Detection**: Z-score analysis with interactive visualizations
+  - **Anomaly Detection**: 30-second analysis workflow with progress steps, Z-score distribution chart, and hardcoded Deal 1015114 anomaly report
 
 ### Running the MCP Server
 The backend MCP server runs automatically on:
