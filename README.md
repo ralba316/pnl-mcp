@@ -1,24 +1,26 @@
-<p align="center">
-  <img src="assets/logo.svg" alt="Excel MCP Server Logo" width="300"/>
-</p>
+# Flash PNL Dashboard
 
-[![PyPI version](https://img.shields.io/pypi/v/excel-mcp-server.svg)](https://pypi.org/project/excel-mcp-server/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/excel-mcp-server.svg)](https://pypi.org/project/excel-mcp-server/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-# Excel MCP Server
-
-A Model Context Protocol (MCP) server that lets you manipulate Excel files without needing Microsoft Excel installed. Create, read, and modify Excel workbooks with your AI agent.
+A professional trading terminal-style dashboard for analyzing Profit & Loss (PNL) data with real-time anomaly detection.
 
 ## Features
 
-- 📊 Create and modify Excel workbooks
-- 📝 Read and write data
-- 🎨 Apply formatting and styles
-- 📈 Create charts and visualizations
-- 📊 Generate pivot tables
-- 🔄 Manage worksheets and ranges
-- 🔌 Dual transport support: stdio and SSE
+- **Professional Trading Terminal Theme**
+  - Dark theme with neon green (#00ff41) and cyan (#00d4ff) accents
+  - Roboto Mono monospace font for authentic terminal look
+  - Clean, professional interface without emojis
+
+- **Deal Summary Analysis**
+  - Individual pie charts for each deal showing PNL impact breakdown
+  - 7 impact categories: Delta, Fx, Spot, Theta, Gamma, Vega, Vega Gamma
+  - Real-time portfolio metrics and key performance indicators
+  - Detailed summary table with formatted financial data
+
+- **Anomaly Detection**
+  - Z-score statistical analysis (threshold: |Z| > 3)
+  - Highlighted root cause identification
+  - Price movement impact visualization
+  - Critical alerts for suspicious financial activity
+  - Interactive Z-score distribution charts
 
 ## Quick Start
 
@@ -26,86 +28,77 @@ A Model Context Protocol (MCP) server that lets you manipulate Excel files witho
 
 - Python 3.10 or higher
 
-### Running the Server
+### Installation
 
-The server supports two transport modes: stdio and SSE.
-
-#### Using stdio transport
-
-Stdio transport is ideal for direct integration with tools like Cursor Desktop or local development, which can manipulate local files:
-
+1. Clone the repository:
 ```bash
-uvx excel-mcp-server stdio
+git clone https://github.com/ralba316/pnl-mcp.git
+cd pnl-mcp
 ```
 
-#### Using SSE transport
-
-SSE transport is perfect for remote connections, which manipulate remote files:
-
+2. Install dependencies:
 ```bash
-uvx excel-mcp-server sse
+pip install -r requirements.txt
 ```
 
-## Using with AI Tools
+### Running the Dashboard
 
-1. Add this configuration to your client, choosing the appropriate transport method for your needs:
-
-**Stdio transport connection** (for local integration):
-```json
-{
-   "mcpServers": {
-      "excel-stdio": {
-         "command": "uvx",
-         "args": ["excel-mcp-server", "stdio"]
-      }
-   }
-}
+Launch the Streamlit server:
+```bash
+streamlit run dashboard.py
 ```
 
-**SSE transport connection**:
-```json
-{
-   "mcpServers": {
-      "excel": {
-         "url": "http://localhost:8000/sse",
-      }
-   }
-}
+The dashboard will open automatically in your browser at `http://localhost:5000`
+
+## Project Structure
+
+```
+pnl-frontend/
+├── dashboard.py           # Main Streamlit application
+├── requirements.txt       # Python dependencies
+├── data_files/
+│   └── pnl_data.xlsx     # PNL data with Data and Pivot sheets
+└── README.md             # This file
 ```
 
-2. The Excel tools will be available through your AI assistant.
+## Data Format
 
-## Environment Variables & File Path Handling
+The dashboard expects an Excel file (`data_files/pnl_data.xlsx`) with two sheets:
 
-### SSE Transport
+1. **Data Sheet**: Contains detailed PNL records with columns:
+   - Deal Num, Data Type, Index
+   - Base PNL, Base PNL Explained, Base PNL Unexplained
+   - Base Impact of Delta, Fx, Spot, Theta, Gamma, Vega, Vega Gamma
+   - Inp Today, Inp Yesterday (for price movement analysis)
 
-When running the server with the **SSE protocol**, you **must set the `EXCEL_FILES_PATH` environment variable on the server side**. This variable tells the server where to read and write Excel files.
-- If not set, it defaults to `./excel_files`.
+2. **Pivot Sheet**: Aggregated PNL data with header in row 2
 
-You can also set the `FASTMCP_PORT` environment variable to control the port the server listens on (default is `8000` if not set).
-- Example (Windows PowerShell):
-  ```powershell
-  $env:EXCEL_FILES_PATH="E:\MyExcelFiles"
-  $env:FASTMCP_PORT="8080"
-  uvx excel-mcp-server sse
-  ```
-- Example (Linux/macOS):
-  ```bash
-  EXCEL_FILES_PATH=/path/to/excel_files FASTMCP_PORT=8080 uvx excel-mcp-server sse
-  ```
+## Usage
 
-### Stdio Transport
+### Deals Summary View
+- View overall portfolio metrics
+- Analyze individual deal performance with pie charts
+- Review detailed financial breakdowns by impact category
 
-When using the **stdio protocol**, the file path is provided with each tool call, so you do **not** need to set `EXCEL_FILES_PATH` on the server. The server will use the path sent by the client for each operation.
+### Anomaly Detection View
+- Click "DETECT ANOMALIES" button
+- Wait for 10-second analysis with progress indicators
+- Review detected anomalies with highlighted root causes
+- Examine Z-score distribution and statistical outliers
 
-## Available Tools
+## Dependencies
 
-The server provides a comprehensive set of Excel manipulation tools. See [TOOLS.md](TOOLS.md) for complete documentation of all available tools.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=haris-musa/excel-mcp-server&type=Date)](https://www.star-history.com/#haris-musa/excel-mcp-server&Date)
+- streamlit >= 1.28.0
+- pandas >= 2.0.0
+- plotly >= 5.17.0
+- scipy >= 1.11.0
+- numpy >= 1.24.0
+- openpyxl >= 3.1.0
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see LICENSE for details.
+
+## Acknowledgments
+
+Built with Claude Code for professional financial analysis and anomaly detection.
