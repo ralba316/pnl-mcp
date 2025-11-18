@@ -32,13 +32,12 @@ extras/
 .notes/
 logs/
 output/
-*.xlsx
-*.xls
-*.log 
+*.log
 excel_files/
 workflows/
 anomaly.txt
 workflow.md
+.local/
 
 # Claude specific
 .claude/settings.local.json
