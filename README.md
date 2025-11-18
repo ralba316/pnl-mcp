@@ -43,12 +43,25 @@ pip install -r requirements.txt
 
 ### Running the Dashboard
 
+#### Local Development
+
 Launch the Streamlit server:
 ```bash
 streamlit run dashboard.py
 ```
 
-The dashboard will open automatically in your browser at `http://localhost:5000`
+The dashboard will open automatically in your browser at `http://localhost:8501`
+
+#### Streamlit Cloud Deployment
+
+1. Fork or push this repository to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Click "New app"
+4. Select your repository: `ralba316/pnl-mcp`
+5. Set main file path: `dashboard.py`
+6. Click "Deploy"
+
+The app will be live at `https://your-app-name.streamlit.app`
 
 ## Project Structure
 
